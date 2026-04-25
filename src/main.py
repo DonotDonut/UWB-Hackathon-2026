@@ -18,6 +18,7 @@ from database_access.seatgeek import SeatGeek
 from database_creation.employee import EmployeeGenerator
 from database_modificaiton.resturant_capacity import ResturantCapacityEstimator
 from database_modificaiton.event_coordinates import EventCoordinateMapper
+from machine_learning.eclat import EclatScheduleSuggestion
 
 # 
 out_path = "output data/5mile_radius_store_list.xlsx"
@@ -145,7 +146,7 @@ SeatGeek.save_events_to_excel(
     output_file=OUTPUT_FILE
 )
 """
-'''
+
 
 # creating employee databse 
 
@@ -225,4 +226,19 @@ EventCoordinateMapper.add_coordinates(
     input_file=INPUT_FILE,
     output_file=OUTPUT_FILE,
     venue_coords=VENUE_COORDS
+)
+''' 
+
+EMPLOYEE_FILE = "output data/random_employee_staffing.xlsx"
+STORE_FILE = "output data/5mile_radius_store_list_with_capacity.xlsx"
+EVENT_FILE = "output data/events_with_coordinates.xlsx"
+OUTPUT_FILE = "output data/schedule_suggestions_eclat.xlsx"
+
+EclatScheduleSuggestion.process(
+    employee_file=EMPLOYEE_FILE,
+    store_file=STORE_FILE,
+    event_file=EVENT_FILE,
+    output_file=OUTPUT_FILE,
+    radius_miles=1.0,
+    min_support=3
 )
