@@ -6,6 +6,8 @@ from xml.sax.saxutils import escape as xml_escape
 import pandas as pd
 import requests
 from datetime import datetime, timezone
+import random
+
 
 
 # Script / Python File connection
@@ -14,8 +16,12 @@ from database_access.geographic_information_system import GIS
 from database_access.ticketmaster import TicketMaster
 from database_access.seatgeek import SeatGeek
 
+
+# 
 out_path = "output data/5mile_radius_store_list.xlsx"
 kml_out_path = "output data/5mile_radius_store_list.kml"
+INPUT_FILE = "5mile_radius_store_list.xlsx"
+OUTPUT_FILE = "output data/random_employee_staffing.xlsx"
 
 overpass_url = "https://overpass-api.de/api/interpreter"
 
@@ -61,7 +67,7 @@ to get the tickemaster API Key
 7) Select the dropw down to find the consumer key 
 8) copy and paste the consumer key 
 """
-TICKETMASTER_API_KEY ='iZrcUQF26wUbLhlPY6S2oGxcNzbbyAwv' # edit! 
+TICKETMASTER_API_KEY = None # edit! 
 SIZE = 200
 MIN_EVENT_SIZE = 5000
 MAX_EVENT_SIZE = 50000
