@@ -48,6 +48,18 @@ GIS.write_kml(
 print("GIS, KML - Finish plotting the resturant location ")
 
 # Ticketmaster Parameters 
+""" 
+to get the tickemaster API Key 
+1) go to the following website to create an account or login in: https://developer-acct.ticketmaster.com/user/login?destination=user
+2) Select Explorer table 
+3) Select Get API 
+4) Select "ADD a New APP" 
+5) add required infomraiton
+5.1) if you are not using OAuth product, fill out Redicrec URl 1* with "http://localhost"
+6) Create applicaiton 
+7) Select the dropw down to find the consumer key 
+8) copy and paste the consumer key 
+"""
 TICKETMASTER_API_KEY = None # edit! 
 SIZE = 200
 MIN_EVENT_SIZE = 5000
