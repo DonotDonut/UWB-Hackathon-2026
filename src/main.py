@@ -15,14 +15,16 @@ from database_access.turbo_overpass import TurboOverpass
 from database_access.geographic_information_system import GIS
 from database_access.ticketmaster import TicketMaster
 from database_access.seatgeek import SeatGeek
+from database_creation.employee import EmployeeGenerator
 
 
 # 
 out_path = "output data/5mile_radius_store_list.xlsx"
 kml_out_path = "output data/5mile_radius_store_list.kml"
-INPUT_FILE = "5mile_radius_store_list.xlsx"
+INPUT_FILE = "output data/5mile_radius_store_list.xlsx"
 OUTPUT_FILE = "output data/random_employee_staffing.xlsx"
 
+''' 
 overpass_url = "https://overpass-api.de/api/interpreter"
 
 location_name = "3rd Avenue, Seattle"
@@ -142,3 +144,45 @@ SeatGeek.save_events_to_excel(
     output_file=OUTPUT_FILE
 )
 """
+'''
+
+# creating employee databse 
+
+POSITIONS = [
+    "Store Manager",
+    "Assistant Manager",
+    "Cashier",
+    "Stock Associate",
+    "Sales Associate",
+    "Customer Service Rep"
+]
+
+AVAILABILITY = [
+    "Full-time",
+    "Part-time",
+    "Weekends",
+    "Evenings",
+    "Mornings",
+    "Flexible"
+]
+
+SCHEDULES = [
+    "Mon-Fri 9AM-5PM",
+    "Mon-Wed 8AM-2PM",
+    "Thu-Sun 12PM-8PM",
+    "Sat-Sun 10AM-6PM",
+    "Tue-Sat 2PM-10PM",
+    "Flexible / On-call"
+]
+
+PEOPLE_PER_STORE = 7
+
+EmployeeGenerator.generate_employee_sheet(
+    input_store_file=INPUT_FILE,
+    output_file=OUTPUT_FILE,
+    positions=POSITIONS,
+    availability=AVAILABILITY,
+    schedules=SCHEDULES,
+    people_per_store=PEOPLE_PER_STORE
+)
+
