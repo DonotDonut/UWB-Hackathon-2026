@@ -1,269 +1,306 @@
+"""
+CrowdCue: Event-Based Workforce Scheduling System 
+
+This script performs the full data pipeline:
+
+1. Extract store locations using Turbo Overpass API
+2. Generate KML visualization
+3. Extract event data from Ticketmaster in the seattle region 
+4. Generate synthetic employee dataset
+5. Estimate store capacity 
+6. Add coordinates to events 
+7. Run Eclat algorithm for scheduling suggestions
+8. Validate results (statistics + train/test split)
+
+Author: Timothy Caole 
+Date: April 2026
+
+Description:
+This project implements an event driven workforce scheduling
+system using the Eclat frequent pattern mining algorithm.
+
+Note:
+This code was developed with assistance from AI tools
+for structuring, debugging, and optimization.
+"""
+
+
 # Importing Python Libraries
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
 import os
-from xml.sax.saxutils import escape as xml_escape
 import pandas as pd
-import requests
-from datetime import datetime, timezone
-import random
-
-
 
 # Script / Python File connection
 from database_access.turbo_overpass import TurboOverpass
 from database_access.geographic_information_system import GIS
 from database_access.ticketmaster import TicketMaster
-from database_access.seatgeek import SeatGeek
 from database_creation.employee import EmployeeGenerator
 from database_modificaiton.resturant_capacity import ResturantCapacityEstimator
 from database_modificaiton.event_coordinates import EventCoordinateMapper
 from machine_learning.eclat import EclatScheduleSuggestion
 from machine_learning.test import EclatTest
 
-# 
-out_path = "output data/5mile_radius_store_list.xlsx"
-kml_out_path = "output data/5mile_radius_store_list.kml"
-INPUT_FILE = "output data/5mile_radius_store_list.xlsx"
-OUTPUT_FILE = "output data/random_employee_staffing.xlsx"
 
+# Global File Paths
+OUTPUT_DIR = "output data"
 
-overpass_url = "https://overpass-api.de/api/interpreter"
+STORE_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list.xlsx"
+STORE_KML_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list.kml"
+STORE_CAPACITY_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list_with_capacity.xlsx"
 
-location_name = "3rd Avenue, Seattle"
-lat = 47.6050
-lon = -122.3345
-radius_meters = 8047
+EMPLOYEE_FILE = f"{OUTPUT_DIR}/random_employee_staffing.xlsx"
 
-overpass_query = f"""
-[out:json][timeout:180];
-(
-    node["amenity"~"^(bar|biergarten|cafe|fast_food|food_court|ice_cream|pub)$"](around:{radius_meters},{lat},{lon});
-    node["shop"~"^(bakery|cheese|chocolate|confectionery|convenience|dairy|deli|food|frozen_food|ice_cream|nuts|pasta|pastry|supermarket)$"](around:{radius_meters},{lat},{lon});
-);
-out body;
-""".strip()
+TICKETMASTER_EVENT_FILE = f"{OUTPUT_DIR}/ticketmaster_seattle_filtered_events.xlsx"
+EVENT_COORDINATE_FILE = f"{OUTPUT_DIR}/events_with_coordinates.xlsx"
 
-data = TurboOverpass.fetch_overpass(overpass_url, overpass_query)
-elements = data.get("elements", [])
-
-TurboOverpass.write_excel(elements, out_path)
-print("TurboOver pass - Finish extracting resturant location ")
-
-GIS.write_kml(
-    elements=elements,
-    kml_out_path=kml_out_path,
-    location_name=location_name,
-    lat=lat,
-    lon=lon
-)
-print("GIS, KML - Finish plotting the resturant location ")
-
-# Ticketmaster Parameters 
-""" 
-to get the tickemaster API Key 
-1) go to the following website to create an account or login in: https://developer-acct.ticketmaster.com/user/login?destination=user
-2) Select Explorer table 
-3) Select Get API 
-4) Select "ADD a New APP" 
-5) add required infomraiton
-5.1) if you are not using OAuth product, fill out Redicrec URl 1* with "http://localhost"
-6) Create applicaiton 
-7) Select the dropw down to find the consumer key 
-8) copy and paste the consumer key 
-"""
-TICKETMASTER_API_KEY = None # edit! 
-SIZE = 200
-MIN_EVENT_SIZE = 5000
-MAX_EVENT_SIZE = 50000
-OUTPUT_FILE = "output data/ticketmaster_seattle_filtered_events.xlsx"
-
-VENUE_CAPACITY = {
-    "T-Mobile Park": 47929,
-    "Lumen Field": 68740,
-    "Climate Pledge Arena": 17200,
-    "WAMU Theater": 7200,
-    "Paramount Theatre": 2807,
-    "Moore Theatre": 1800,
-    "Showbox SoDo": 1800,
-    "The Showbox": 1150,
-    "Neptune Theatre": 1000,
-}
-
-# Step 1: Fetch
-events = TicketMaster.fetch_events(
-    api_key=TICKETMASTER_API_KEY,
-    venue_capacity=VENUE_CAPACITY,
-    size=SIZE
-)
-
-# Step 2: Save
-TicketMaster.save_filtered_events_to_excel(
-    events=events,
-    min_size=MIN_EVENT_SIZE,
-    max_size=MAX_EVENT_SIZE,
-    output_file=OUTPUT_FILE
-)
-print("Ticketmaster - Finish extracting events near seattle location ")
-
-
-""" 
-Reference: https://seatgeek.com/build?msockid=1f897f4131c165c437936cce30c964b5 
-to get the seatgeek API Key 
-1) go to the following website to create an account or login in: https://developer.seatgeek.com/login
-2) Account will need to be approved to get the private token (waiting atm)
-"""
-""" 
-URL = "https://api.seatgeek.com/2/events"
-
-CLIENT_ID = None
-CLIENT_SECRET = None   # 
-
-PER_PAGE = 100
-
-OUTPUT_FILE = "output/seatgeek_seattle_events.xlsx"
-
-# Build params dynamically
-params = {
-    "client_id": CLIENT_ID,
-    "venue.city": "Seattle",
-    "venue.state": "WA",
-    "per_page": PER_PAGE,
-    "sort": "datetime_utc.asc",
-}
-
-if CLIENT_SECRET:
-    params["client_secret"] = CLIENT_SECRET
-
-# Step 1: Fetch
-events = SeatGeek.fetch_events(
-    url=URL,
-    params=params
-)
-
-# Step 2: Save
-SeatGeek.save_events_to_excel(
-    events=events,
-    output_file=OUTPUT_FILE
-)
-"""
-
-
-# creating employee databse 
-
-POSITIONS = [
-    "Store Manager",
-    "Assistant Manager",
-    "Cashier",
-    "Stock Associate",
-    "Sales Associate",
-    "Customer Service Rep"
-]
-
-AVAILABILITY = [
-    "Full-time",
-    "Part-time",
-    "Weekends",
-    "Evenings",
-    "Mornings",
-    "Flexible"
-]
-
-SCHEDULES = [
-    "Mon-Fri 9AM-5PM",
-    "Mon-Wed 8AM-2PM",
-    "Thu-Sun 12PM-8PM",
-    "Sat-Sun 10AM-6PM",
-    "Tue-Sat 2PM-10PM",
-    "Flexible / On-call"
-]
-
-PEOPLE_PER_STORE = 9
-
-EmployeeGenerator.generate_employee_sheet(
-    input_store_file=INPUT_FILE,
-    output_file=OUTPUT_FILE,
-    positions=POSITIONS,
-    availability=AVAILABILITY,
-    schedules=SCHEDULES,
-    people_per_store=PEOPLE_PER_STORE
-)
-
-# 
-INPUT_FILE = "output data/5mile_radius_store_list.xlsx"
-OUTPUT_FILE = "output data/5mile_radius_store_list_with_capacity.xlsx"
-
-df = pd.read_excel(INPUT_FILE)
-
-# Apply capacity estimation
-df["estimated_store_capacity"] = df["name"].apply(
-    ResturantCapacityEstimator.estimate_capacity
-)
-
-# Save
-df.to_excel(OUTPUT_FILE, index=False)
-
-print(f"Saved: {OUTPUT_FILE}")
-print(f"Total Stores: {len(df)}")
+ECLAT_OUTPUT_FILE = f"{OUTPUT_DIR}/schedule_suggestions_eclat.xlsx"
 
 
 
-INPUT_FILE = "output data/ticketmaster_seattle_filtered_events.xlsx"
-OUTPUT_FILE = "output data/events_with_coordinates.xlsx"
+# 1. Extract store locations (Turbo Overpass)
+def extract_store_locations():
+    """
+    Extract restaurant/store locations using OpenStreetMap Overpass API.
+    Outputs:
+        - Excel file (store list)
+        - KML file (for visualization in GIS tools)
+    """
 
-VENUE_COORDS = {
-    "T-Mobile Park": (47.5914, -122.3325),
-    "Lumen Field": (47.5952, -122.3316),
-    "Climate Pledge Arena": (47.6221, -122.3540),
-    "WAMU Theater": (47.5930, -122.3270),
-    "Paramount Theatre": (47.6135, -122.3316),
-    "Moore Theatre": (47.6115, -122.3425),
-    "Showbox SoDo": (47.5804, -122.3345),
-    "The Showbox": (47.6099, -122.3417),
-    "Neptune Theatre": (47.6615, -122.3130),
-}
+    overpass_url = "https://overpass-api.de/api/interpreter"
 
-EventCoordinateMapper.add_coordinates(
-    input_file=INPUT_FILE,
-    output_file=OUTPUT_FILE,
-    venue_coords=VENUE_COORDS
-)
+    location_name = "3rd Avenue, Seattle"
+    lat = 47.6050
+    lon = -122.3345
+    radius_meters = 8047  # ~5 miles
+
+    # Overpass Query: fetch restaurants, cafes, grocery-related shops
+    overpass_query = f"""
+    [out:json][timeout:180];
+    (
+        node["amenity"~"^(bar|biergarten|cafe|fast_food|food_court|ice_cream|pub)$"](around:{radius_meters},{lat},{lon});
+        node["shop"~"^(bakery|cheese|chocolate|confectionery|convenience|dairy|deli|food|frozen_food|ice_cream|nuts|pasta|pastry|supermarket)$"](around:{radius_meters},{lat},{lon});
+    );
+    out body;
+    """.strip()
+
+    data = TurboOverpass.fetch_overpass(overpass_url, overpass_query)
+    elements = data.get("elements", [])
+
+    TurboOverpass.write_excel(elements, STORE_FILE)
+
+    # Create KML visualization
+    GIS.write_kml(
+        elements=elements,
+        kml_out_path=STORE_KML_FILE,
+        location_name=location_name,
+        lat=lat,
+        lon=lon
+    )
+
+    print("TurboOverpass: Finished extracting store locations")
+    print("GIS: Finished generating KML file")
 
 
-EMPLOYEE_FILE = "output data/random_employee_staffing.xlsx"
-STORE_FILE = "output data/5mile_radius_store_list_with_capacity.xlsx"
-EVENT_FILE = "output data/events_with_coordinates.xlsx"
-OUTPUT_FILE = "output data/schedule_suggestions_eclat.xlsx"
 
-suggestions_df, frequent_df = EclatScheduleSuggestion.process(
-    employee_file=EMPLOYEE_FILE,
-    store_file=STORE_FILE,
-    event_file=EVENT_FILE,
-    output_file=OUTPUT_FILE,
-    radius_miles=1.0,
-    min_support=3
-)
+# 2. Extract Ticketmaster events in seattle area 
+def extract_ticketmaster_events():
+    """
+    Extract event data using Ticketmaster API.
 
-employee_df = pd.read_excel(EMPLOYEE_FILE)
-store_df = pd.read_excel(STORE_FILE)
-event_df = pd.read_excel(EVENT_FILE)
+    NOTE:
+    - API key must be stored as environment variable
+    - See instructions below
+    """
 
-transactions = EclatScheduleSuggestion.build_transactions(
-    employee_df=employee_df,
-    store_df=store_df,
-    event_df=event_df,
-    radius_miles=1.0
-)
+    # Ticketmaster Parameters
+    """
+    to get the tickemaster API Key 
+    1) go to the following website to create an account or login in: https://developer-acct.ticketmaster.com/user/login?destination=user
+    2) Select Explorer table 
+    3) Select Get API 
+    4) Select "ADD a New APP" 
+    5) add required infomraiton
+    5.1) if you are not using OAuth product, fill out Redicrec URl 1* with "http://localhost"
+    6) Create applicaiton 
+    7) Select the dropw down to find the consumer key 
+    8) copy and paste the consumer key 
+    """
 
-EclatTest.validate_eclat_results(
-    frequent_df=frequent_df,
-    suggestions_df=suggestions_df,
-    output_prefix="output data/eclat_validation"
-)
+    ticketmaster_api_key = None # edit here! 
 
-EclatTest.validate_train_test_patterns(
-    transactions=transactions,
-    min_support=3,
-    test_size=0.30,
-    output_prefix="output data/eclat_train_test_validation"
-)
+    if not ticketmaster_api_key:
+        raise ValueError("Missing TICKETMASTER_API_KEY")
+
+    venue_capacity = {
+        "T-Mobile Park": 47929,
+        "Lumen Field": 68740,
+        "Climate Pledge Arena": 17200,
+        "WAMU Theater": 7200,
+        "Paramount Theatre": 2807,
+        "Moore Theatre": 1800,
+        "Showbox SoDo": 1800,
+        "The Showbox": 1150,
+        "Neptune Theatre": 1000,
+    }
+
+    events = TicketMaster.fetch_events(
+        api_key=ticketmaster_api_key,
+        venue_capacity=venue_capacity,
+        size=200
+    )
+
+    TicketMaster.save_filtered_events_to_excel(
+        events=events,
+        min_size=5000,
+        max_size=50000,
+        output_file=TICKETMASTER_EVENT_FILE
+    )
+
+    print("Ticketmaster: Finished extracting events")
+
+
+# Step 3. Create employee dataset
+def create_employee_database():
+    """
+    Generate synthetic employee dataset.
+    Ensures each store has assigned employees.
+    """
+
+    positions = [
+        "Store Manager",
+        "Assistant Manager",
+        "Cashier",
+        "Stock Associate",
+        "Sales Associate",
+        "Customer Service Rep"
+    ]
+
+    availability = [
+        "Full-time",
+        "Part-time",
+        "Weekends",
+        "Evenings",
+        "Mornings",
+        "Flexible"
+    ]
+
+    schedules = [
+        "Mon-Fri 9AM-5PM",
+        "Mon-Wed 8AM-2PM",
+        "Thu-Sun 12PM-8PM",
+        "Sat-Sun 10AM-6PM",
+        "Tue-Sat 2PM-10PM",
+        "Flexible / On-call"
+    ]
+
+    EmployeeGenerator.generate_employee_sheet(
+        input_store_file=STORE_FILE,
+        output_file=EMPLOYEE_FILE,
+        positions=positions,
+        availability=availability,
+        schedules=schedules,
+        people_per_store=9
+    )
+
+    print("Employee DB: Generated employee dataset")
+
+
+
+# 4. Estimate store capacity
+def add_store_capacity():
+    """
+    Estimate store capacity based on store name/type.
+    """
+
+    df = pd.read_excel(STORE_FILE)
+
+    df["estimated_store_capacity"] = df["name"].apply(
+        ResturantCapacityEstimator.estimate_capacity
+    )
+
+    df.to_excel(STORE_CAPACITY_FILE, index=False)
+
+    print(f"Saved: {STORE_CAPACITY_FILE}")
+    print(f"Total Stores: {len(df)}")
+
+
+
+# Step 5. Add event coordinates
+def add_event_coordinates():
+    """
+    Map venue names to coordinates.
+    """
+
+    VENUE_COORDS = {
+        "T-Mobile Park": (47.5914, -122.3325),
+        "Lumen Field": (47.5952, -122.3316),
+        "Climate Pledge Arena": (47.6221, -122.3540),
+        "WAMU Theater": (47.5930, -122.3270),
+        "Paramount Theatre": (47.6135, -122.3316),
+        "Moore Theatre": (47.6115, -122.3425),
+        "Showbox SoDo": (47.5804, -122.3345),
+        "The Showbox": (47.6099, -122.3417),
+        "Neptune Theatre": (47.6615, -122.3130),
+    }
+
+    EventCoordinateMapper.add_coordinates(
+        input_file=TICKETMASTER_EVENT_FILE,
+        output_file=EVENT_COORDINATE_FILE,
+        venue_coords=VENUE_COORDS
+    )
+
+    print("Events: Added coordinates")
+
+
+
+# Step 6: Run Eclat + Validation
+def run_eclat_model():
+    """
+    Run Eclat algorithm and validate results.
+    """
+
+    suggestions_df, frequent_df = EclatScheduleSuggestion.process(
+        employee_file=EMPLOYEE_FILE,
+        store_file=STORE_CAPACITY_FILE,
+        event_file=EVENT_COORDINATE_FILE,
+        output_file=ECLAT_OUTPUT_FILE,
+        radius_miles=1.0,
+        min_support=3
+    )
+
+    employee_df = pd.read_excel(EMPLOYEE_FILE)
+    store_df = pd.read_excel(STORE_CAPACITY_FILE)
+    event_df = pd.read_excel(EVENT_COORDINATE_FILE)
+
+    transactions = EclatScheduleSuggestion.build_transactions(
+        employee_df=employee_df,
+        store_df=store_df,
+        event_df=event_df,
+        radius_miles=1.0 # assuming that people would walk 1 mile to resturant after event 
+    )
+
+    EclatTest.validate_eclat_results(
+        frequent_df=frequent_df,
+        suggestions_df=suggestions_df
+    )
+
+    EclatTest.validate_train_test_patterns(
+        transactions=transactions
+    )
+
+    print("Eclat: Completed modeling + validation")
+
+
+# main
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+extract_store_locations()
+extract_ticketmaster_events()
+create_employee_database()
+add_store_capacity()
+add_event_coordinates()
+run_eclat_model()
+
+print("Pipeline completed successfully.")
+
+
