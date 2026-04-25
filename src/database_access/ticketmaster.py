@@ -1,6 +1,5 @@
-# ---------------------------------------------------------
+
 # Importing Python Libraries
-# ---------------------------------------------------------
 import os
 import pandas as pd
 import requests

@@ -1,6 +1,5 @@
-# ---------------------------------------------------------
+
 # Importing Python Libraries
-# ---------------------------------------------------------
 import os
 from xml.sax.saxutils import escape as xml_escape
 
