@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from database_access.turbo_overpass import TurboOverpass
 from database_access.geographic_information_system import GIS
 from database_access.ticketmaster import TicketMaster
+from database_access.seatgeek import SeatGeek
 
 out_path = "output/5mile_radius_store_list.xlsx"
 kml_out_path = "output/5mile_radius_store_list.kml"
@@ -93,3 +94,50 @@ TicketMaster.save_filtered_events_to_excel(
     output_file=OUTPUT_FILE
 )
 print("Ticketmaster - Finish extracting events near seattle location ")
+
+
+""" 
+Reference: https://seatgeek.com/build?msockid=1f897f4131c165c437936cce30c964b5 
+to get the seatgeek API Key 
+1) go to the following website to create an account or login in: https://developer.seatgeek.com/login
+2) Select Explorer table 
+3) Select Get API 
+4) Select "ADD a New APP" 
+5) add required infomraiton
+5.1) if you are not using OAuth product, fill out Redicrec URl 1* with "http://localhost"
+6) Create applicaiton 
+7) Select the dropw down to find the consumer key 
+8) copy and paste the consumer key 
+"""
+URL = "https://api.seatgeek.com/2/events"
+
+CLIENT_ID = "your_client_id_here"
+CLIENT_SECRET = None   # or ""
+
+PER_PAGE = 100
+
+OUTPUT_FILE = "output/seatgeek_seattle_events.xlsx"
+
+# Build params dynamically
+params = {
+    "client_id": CLIENT_ID,
+    "venue.city": "Seattle",
+    "venue.state": "WA",
+    "per_page": PER_PAGE,
+    "sort": "datetime_utc.asc",
+}
+
+if CLIENT_SECRET:
+    params["client_secret"] = CLIENT_SECRET
+
+# Step 1: Fetch
+events = SeatGeek.fetch_events(
+    url=URL,
+    params=params
+)
+
+# Step 2: Save
+SeatGeek.save_events_to_excel(
+    events=events,
+    output_file=OUTPUT_FILE
+)
