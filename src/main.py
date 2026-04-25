@@ -17,7 +17,7 @@ from database_access.ticketmaster import TicketMaster
 from database_access.seatgeek import SeatGeek
 from database_creation.employee import EmployeeGenerator
 from database_modificaiton.resturant_capacity import ResturantCapacityEstimator
-
+from database_modificaiton.event_coordinates import EventCoordinateMapper
 
 # 
 out_path = "output data/5mile_radius_store_list.xlsx"
@@ -186,7 +186,7 @@ EmployeeGenerator.generate_employee_sheet(
     schedules=SCHEDULES,
     people_per_store=PEOPLE_PER_STORE
 )
-'''
+
 # 
 INPUT_FILE = "output data/5mile_radius_store_list.xlsx"
 OUTPUT_FILE = "output data/5mile_radius_store_list_with_capacity.xlsx"
@@ -203,3 +203,26 @@ df.to_excel(OUTPUT_FILE, index=False)
 
 print(f"Saved: {OUTPUT_FILE}")
 print(f"Total Stores: {len(df)}")
+'''
+
+
+INPUT_FILE = "output data/ticketmaster_seattle_filtered_events.xlsx"
+OUTPUT_FILE = "output data/events_with_coordinates.xlsx"
+
+VENUE_COORDS = {
+    "T-Mobile Park": (47.5914, -122.3325),
+    "Lumen Field": (47.5952, -122.3316),
+    "Climate Pledge Arena": (47.6221, -122.3540),
+    "WAMU Theater": (47.5930, -122.3270),
+    "Paramount Theatre": (47.6135, -122.3316),
+    "Moore Theatre": (47.6115, -122.3425),
+    "Showbox SoDo": (47.5804, -122.3345),
+    "The Showbox": (47.6099, -122.3417),
+    "Neptune Theatre": (47.6615, -122.3130),
+}
+
+EventCoordinateMapper.add_coordinates(
+    input_file=INPUT_FILE,
+    output_file=OUTPUT_FILE,
+    venue_coords=VENUE_COORDS
+)
