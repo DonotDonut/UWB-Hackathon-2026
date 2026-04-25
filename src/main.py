@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 # Script / Python File connection
 from database_access.turbo_overpass import TurboOverpass
 from database_access.geographic_information_system import GIS
+from database_access.ticketmaster import TicketMaster
 
 out_path = "output/5mile_radius_store_list.xlsx"
 kml_out_path = "output/5mile_radius_store_list.kml"
@@ -35,6 +36,7 @@ data = TurboOverpass.fetch_overpass(overpass_url, overpass_query)
 elements = data.get("elements", [])
 
 TurboOverpass.write_excel(elements, out_path)
+print("TurboOver pass - Finish extracting resturant location ")
 
 GIS.write_kml(
     elements=elements,
@@ -43,3 +45,39 @@ GIS.write_kml(
     lat=lat,
     lon=lon
 )
+print("GIS, KML - Finish plotting the resturant location ")
+
+# PARAMETERS
+TICKETMASTER_API_KEY = "iZrcUQF26wUbLhlPY6S2oGxcNzbbyAwv"
+SIZE = 200
+MIN_EVENT_SIZE = 5000
+MAX_EVENT_SIZE = 50000
+OUTPUT_FILE = "output/ticketmaster_seattle_filtered_events.xlsx"
+
+VENUE_CAPACITY = {
+    "T-Mobile Park": 47929,
+    "Lumen Field": 68740,
+    "Climate Pledge Arena": 17200,
+    "WAMU Theater": 7200,
+    "Paramount Theatre": 2807,
+    "Moore Theatre": 1800,
+    "Showbox SoDo": 1800,
+    "The Showbox": 1150,
+    "Neptune Theatre": 1000,
+}
+
+# Step 1: Fetch
+events = TicketMaster.fetch_events(
+    api_key=TICKETMASTER_API_KEY,
+    venue_capacity=VENUE_CAPACITY,
+    size=SIZE
+)
+
+# Step 2: Save
+TicketMaster.save_filtered_events_to_excel(
+    events=events,
+    min_size=MIN_EVENT_SIZE,
+    max_size=MAX_EVENT_SIZE,
+    output_file=OUTPUT_FILE
+)
+print("Ticketmaster - Finish extracting events near seattle location ")
