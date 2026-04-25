@@ -14,8 +14,8 @@ from database_access.geographic_information_system import GIS
 from database_access.ticketmaster import TicketMaster
 from database_access.seatgeek import SeatGeek
 
-out_path = "output/5mile_radius_store_list.xlsx"
-kml_out_path = "output/5mile_radius_store_list.kml"
+out_path = "output data/5mile_radius_store_list.xlsx"
+kml_out_path = "output data/5mile_radius_store_list.kml"
 
 overpass_url = "https://overpass-api.de/api/interpreter"
 
@@ -61,11 +61,11 @@ to get the tickemaster API Key
 7) Select the dropw down to find the consumer key 
 8) copy and paste the consumer key 
 """
-TICKETMASTER_API_KEY = None # edit! 
+TICKETMASTER_API_KEY ='iZrcUQF26wUbLhlPY6S2oGxcNzbbyAwv' # edit! 
 SIZE = 200
 MIN_EVENT_SIZE = 5000
 MAX_EVENT_SIZE = 50000
-OUTPUT_FILE = "output/ticketmaster_seattle_filtered_events.xlsx"
+OUTPUT_FILE = "output data/ticketmaster_seattle_filtered_events.xlsx"
 
 VENUE_CAPACITY = {
     "T-Mobile Park": 47929,
@@ -100,15 +100,9 @@ print("Ticketmaster - Finish extracting events near seattle location ")
 Reference: https://seatgeek.com/build?msockid=1f897f4131c165c437936cce30c964b5 
 to get the seatgeek API Key 
 1) go to the following website to create an account or login in: https://developer.seatgeek.com/login
-2) Select Explorer table 
-3) Select Get API 
-4) Select "ADD a New APP" 
-5) add required infomraiton
-5.1) if you are not using OAuth product, fill out Redicrec URl 1* with "http://localhost"
-6) Create applicaiton 
-7) Select the dropw down to find the consumer key 
-8) copy and paste the consumer key 
+2) Account will need to be approved to get the private token 
 """
+""" 
 URL = "https://api.seatgeek.com/2/events"
 
 CLIENT_ID = "your_client_id_here"
@@ -141,3 +135,4 @@ SeatGeek.save_events_to_excel(
     events=events,
     output_file=OUTPUT_FILE
 )
+"""
