@@ -365,3 +365,102 @@ button:hover {
 .suggest-btn:hover {
     opacity: 0.9;
 }
+
+.form-card label {
+    display: block;
+    margin-top: 15px;
+    font-weight: 600;
+}
+
+.form-card input,
+.form-card select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+.form-wrapper {
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.form-card {
+    width: 100%;
+    max-width: 700px;   /* controls how wide it is */
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+}
+
+.checkbox-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.checkbox-group label {
+    font-weight: normal;
+}
+
+.shift-list-wrapper {
+    max-width: 900px;
+    margin: 30px auto;
+}
+
+
+.shift-layout {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 30px;
+    padding: 20px;
+}
+
+.shift-list {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.form-wrapper {
+    display: flex;
+    justify-content: center;
+}
+
+.form-card {
+    width: 100%;
+    max-width: 400px;
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+}
+
+.delete-btn {
+    background: #d93b3b;
+    color: white;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 5px;
+}
+
+.shift-search {
+    width: 100%;
+    padding: 12px;
+    margin: 12px 0 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.shift-table-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+.shift-table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}

@@ -60,3 +60,55 @@ function createSuggestedSchedule() {
     // 2. Auto-assign employees to days
     // 3. Populate the schedule
 }
+
+let originalRows = [];
+
+function filterShifts() {
+    const input = document.getElementById("shiftSearch");
+    const filter = input.value.toLowerCase().trim();
+
+    const tbody = document.querySelector("#shiftTable tbody");
+
+    // Store original rows ONLY once
+    if (originalRows.length === 0) {
+        originalRows = Array.from(tbody.querySelectorAll("tr"));
+    }
+
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+
+    // If empty → restore original order
+    if (filter === "") {
+        tbody.innerHTML = "";
+        originalRows.forEach(row => {
+            row.style.display = "";
+            tbody.appendChild(row);
+        });
+        return;
+    }
+
+    function getScore(text) {
+        if (text === filter) return 3;
+        if (text.startsWith(filter)) return 2;
+        if (text.includes(filter)) return 1;
+        return 0;
+    }
+
+    const scoredRows = rows.map(row => {
+        const employee = row.cells[0].textContent.toLowerCase();
+        const day = row.cells[1].textContent.toLowerCase();
+
+        const score = Math.max(getScore(employee), getScore(day));
+        return { row, score };
+    });
+
+    const filtered = scoredRows
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+    tbody.innerHTML = "";
+
+    filtered.forEach(item => {
+        item.row.style.display = "";
+        tbody.appendChild(item.row);
+    });
+}

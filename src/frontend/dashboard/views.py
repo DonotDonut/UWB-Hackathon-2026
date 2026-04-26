@@ -22,7 +22,7 @@ def add_person(request):
             workbook = Workbook()
             sheet = workbook.active
             sheet.title = "Staff"
-            sheet.append(["Full Name", "Email", "Role"])
+            sheet.append(["Full Name", "Email", "Role", "", "", ""])
 
         sheet.append([full_name, email, role])
         workbook.save(EXCEL_FILE)
@@ -101,5 +101,61 @@ def schedules(request):
     )
 
 def edit_shift(request):
-    employees = ["John Smith", "Jane Doe", "Mike Johnson", "Emily Davis", "Chris Lee"]
-    return render(request, "edit_shift.html", {"employees": employees})
+    employees = []
+    shifts = []
+
+    workbook = load_workbook(EXCEL_FILE)
+
+    staff_sheet = workbook["Staff"]
+
+    if "Shifts" not in workbook.sheetnames:
+        shifts_sheet = workbook.create_sheet("Shifts")
+        shifts_sheet.append(["Employee", "Day", "Start Time", "End Time"])
+        workbook.save(EXCEL_FILE)
+    else:
+        shifts_sheet = workbook["Shifts"]
+
+    # Load employees
+    for row in staff_sheet.iter_rows(min_row=2, values_only=True):
+        if row[0]:
+            employees.append(row[0])
+
+    # Add shift
+    if request.method == "POST" and request.POST.get("action") == "add":
+        employee_name = request.POST.get("employee")
+        days = request.POST.getlist("days")
+        start_time = request.POST.get("start_time")
+        end_time = request.POST.get("end_time")
+
+        for day in days:
+            shifts_sheet.append([employee_name, day, start_time, end_time])
+
+        workbook.save(EXCEL_FILE)
+        return redirect("edit_shift")
+
+    # Delete shift
+    if request.method == "POST" and request.POST.get("action") == "delete":
+        row_number = int(request.POST.get("row_number"))
+        shifts_sheet.delete_rows(row_number)
+        workbook.save(EXCEL_FILE)
+        return redirect("edit_shift")
+
+    # Load existing shifts
+    for index, row in enumerate(shifts_sheet.iter_rows(min_row=2, values_only=True), start=2):
+        if row[0]:
+            shifts.append({
+                "row_number": index,
+                "employee": row[0],
+                "day": row[1],
+                "start_time": row[2],
+                "end_time": row[3],
+            })
+
+    return render(
+        request,
+        "edit_shift.html",
+        {
+            "employees": employees,
+            "shifts": shifts,
+        }
+    )
