@@ -38,68 +38,6 @@ def add_person(request):
 
     return render(request, "add_person.html")
 
-def schedules(request):
-    df = pd.read_excel(EXCEL_FILE, sheet_name="Shifts")
-
-    # Clean column names
-    df.columns = df.columns.str.strip()
-
-    staff_schedule = []
-    week_schedule = []
-
-    # Build staff_schedule
-    for employee, group in df.groupby("Employee"):
-        days = ", ".join(group["Day"].astype(str).tolist())
-
-        times = group.apply(
-            lambda row: f"{row['Start Time']} - {row['End Time']}",
-            axis=1
-        ).unique()
-
-        staff_schedule.append({
-            "employee": employee,
-            "days": days,
-            "time": ", ".join(times),
-        })
-
-    # Build week_schedule
-    days_order = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday",
-    ]
-
-    for day in days_order:
-        day_rows = df[df["Day"].astype(str).str.lower() == day.lower()]
-
-        shifts = []
-
-        for _, row in day_rows.iterrows():
-            employee = str(row["Employee"])
-
-            shifts.append({
-                "employee": employee,
-                "time": f"{row['Start Time']} - {row['End Time']}",
-                "color": employee.split()[0].lower(),
-            })
-
-        week_schedule.append({
-            "day": day,
-            "shifts": shifts,
-        })
-
-    return render(
-        request,
-        "schedules.html",
-        {
-            "staff_schedule": staff_schedule,
-            "week_schedule": week_schedule,
-        },
-    )
 
 def edit_shift(request):
     employees = []
@@ -175,8 +113,76 @@ print("SRC_DIR:", SRC_DIR)
 
 from backend.main import run_eclat_model
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+import traceback
+
+@ensure_csrf_cookie
+def schedules(request):
+    df = pd.read_excel(EXCEL_FILE, sheet_name="Shifts")
+
+    df.columns = df.columns.str.strip()
+
+    staff_schedule = []
+    week_schedule = []
+
+    for employee, group in df.groupby("Employee"):
+        days = ", ".join(group["Day"].astype(str).tolist())
+
+        times = group.apply(
+            lambda row: f"{row['Start Time']} - {row['End Time']}",
+            axis=1
+        ).unique()
+
+        staff_schedule.append({
+            "employee": employee,
+            "days": days,
+            "time": ", ".join(times),
+        })
+
+    days_order = [
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+    ]
+
+    for day in days_order:
+        day_rows = df[df["Day"].astype(str).str.lower() == day.lower()]
+
+        shifts = []
+
+        for _, row in day_rows.iterrows():
+            employee = str(row["Employee"])
+
+            shifts.append({
+                "employee": employee,
+                "time": f"{row['Start Time']} - {row['End Time']}",
+                "color": employee.split()[0].lower(),
+            })
+
+        week_schedule.append({
+            "day": day,
+            "shifts": shifts,
+        })
+
+    return render(
+        request,
+        "schedules.html",
+        {
+            "staff_schedule": staff_schedule,
+            "week_schedule": week_schedule,
+        },
+    )
+
+
 def create_suggested_schedule(request):
-    if request.method == "POST":
+    if request.method != "POST":
+        return JsonResponse({
+            "status": "error",
+            "message": "POST required"
+        }, status=405)
+
+    try:
+        print("ECLAT TRIGGERED")
         result = run_eclat_model()
 
         return JsonResponse({
@@ -184,4 +190,11 @@ def create_suggested_schedule(request):
             "data": result,
         })
 
-    return JsonResponse({"status": "error", "message": "POST required"}, status=405)
+    except Exception as e:
+        print("ECLAT ERROR:")
+        traceback.print_exc()
+
+        return JsonResponse({
+            "status": "error",
+            "message": str(e),
+        }, status=500)

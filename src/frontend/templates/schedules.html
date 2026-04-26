@@ -1,4 +1,6 @@
 {% extends "base.html" %}
+{% load static %}
+<script src="{% static 'js/script.js' %}"></script>
 
 {% block content %}
 <section class="schedule-page">
@@ -47,7 +49,8 @@
                     <p>Employees working each day, organized by time.</p>
                 </div>
 
-                <button class="suggest-btn" onclick="createSuggestedSchedule()">
+
+                <button type="button" class="suggest-btn" onclick="console.log('button clicked'); createSuggestedSchedule();">
                     Create Suggested Schedule
                 </button>
             </div>

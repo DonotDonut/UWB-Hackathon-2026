@@ -1,3 +1,5 @@
+console.log("script.js loaded");
+
 function allowDrop(event) {
     event.preventDefault();
 }
@@ -52,13 +54,34 @@ function drop(event) {
     dayCard.appendChild(newShift);
 }
 
-function createSuggestedSchedule() {
-    alert("Suggested schedule feature coming next 🚀");
+async function createSuggestedSchedule() {
+    console.log("createSuggestedSchedule started");
 
-    // Later this will:
-    // 1. Read staff availability
-    // 2. Auto-assign employees to days
-    // 3. Populate the schedule
+    try {
+        const response = await fetch("/create-suggested-schedule/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+        });
+
+        console.log("fetch sent");
+
+        const data = await response.json();
+        console.log(data);
+
+        if (!response.ok || data.status !== "success") {
+            throw new Error(data.message || "Backend failed");
+        }
+
+        alert("Suggested schedule created!");
+        window.location.reload();
+
+    } catch (error) {
+        console.error("Error:", error);
+        alert("Could not create suggested schedule: " + error.message);
+    }
 }
 
 let originalRows = [];
@@ -111,4 +134,24 @@ function filterShifts() {
         item.row.style.display = "";
         tbody.appendChild(item.row);
     });
+}
+
+
+function getCookie(name) {
+    let cookieValue = null;
+
+    if (document.cookie && document.cookie !== "") {
+        const cookies = document.cookie.split(";");
+
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+
+            if (cookie.substring(0, name.length + 1) === name + "=") {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+
+    return cookieValue;
 }

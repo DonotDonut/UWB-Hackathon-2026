@@ -87,7 +87,7 @@ class EclatScheduleSuggestion:
                 # Only include nearby stores
                 if distance <= radius_miles:
                     store_employees = employee_df[
-                        employee_df["OSM ID"] == store["osm_id"]
+                        employee_df["osm_id"] == store["osm_id"]
                     ]
 
                     # Create transactions for each employee
@@ -96,9 +96,10 @@ class EclatScheduleSuggestion:
                             f"event_rank={event['crowd_rank']}",
                             f"venue={event['venue']}",
                             f"store={store['name']}",
-                            f"position={employee['Position']}",
-                            f"availability={employee['Staff Availability']}",
-                            f"schedule={employee['Current Work Schedule']}",
+                            f"position={employee['Role']}",
+                            f"day={employee['Day']}",
+                            f"start_time={employee['Start Time']}",
+                            f"end_time={employee['End Time']}"
                         }
 
                         transactions.append(transaction)
@@ -164,22 +165,11 @@ class EclatScheduleSuggestion:
 
     @staticmethod
     def create_schedule_suggestions(employee_df, store_df, event_df, radius_miles=1.0):
-        """
-        Generate staffing recommendations based on:
-        - Event crowd level
-        - Store capacity
-        - Employee availability
-
-        Returns:
-            pandas.DataFrame: Suggested scheduling assignments
-        """
-
         suggestions = []
 
         for _, event in event_df.iterrows():
             for _, store in store_df.iterrows():
 
-                # Compute distance
                 distance = EclatScheduleSuggestion.haversine_distance(
                     event["latitude"],
                     event["longitude"],
@@ -189,12 +179,11 @@ class EclatScheduleSuggestion:
 
                 if distance <= radius_miles:
                     employees = employee_df[
-                        employee_df["OSM ID"] == store["osm_id"]
+                        employee_df["osm_id"] == store["osm_id"]
                     ]
 
                     capacity = store["estimated_store_capacity"]
 
-                    # Determine staffing needs based on crowd level
                     if event["crowd_rank"] in ["High", "Very High"]:
                         recommended_staff = max(3, int(capacity / 25))
                     elif event["crowd_rank"] == "Medium":
@@ -202,32 +191,20 @@ class EclatScheduleSuggestion:
                     else:
                         recommended_staff = max(1, int(capacity / 50))
 
-                    # Filter employees by availability
-                    available_employees = employees[
-                        employees["Staff Availability"].isin(
-                            ["Full-time", "Flexible", "Evenings", "Weekends"]
-                        )
-                    ]
+                    selected = employees.head(recommended_staff)
 
-                    # Select top available employees
-                    selected = available_employees.head(recommended_staff)
-
-                    # Create suggestion records
                     for _, employee in selected.iterrows():
                         suggestions.append({
+                            "Employee": employee["Full Name"],
+                            "Day": event["Day"],
+                            "Start Time": event["time"],
+                            "End Time": event["time"],
                             "event_name": event["event_name"],
-                            "event_date": event["date"],
-                            "event_time": event["time"],
                             "venue": event["venue"],
                             "crowd_rank": event["crowd_rank"],
                             "store_name": store["name"],
                             "distance_to_event_miles": round(distance, 2),
-                            "employee_id": employee["Employee ID"],
-                            "position": employee["Position"],
-                            "current_schedule": employee["Current Work Schedule"],
-                            "availability": employee["Staff Availability"],
-                            "suggested_action": "Schedule during event window",
-                            "recommended_staff_for_store": recommended_staff,
+                            "Role": employee["Role"],
                         })
 
         return pd.DataFrame(suggestions)
@@ -247,10 +224,37 @@ class EclatScheduleSuggestion:
         focus_maximal_patterns
     ):
         # Load datasets
-        employee_df = pd.read_excel(employee_file)
+        xls = pd.ExcelFile(employee_file)
+        print(xls.sheet_names)
+        
+        staff_df = pd.read_excel(employee_file, sheet_name="Staff")
+        shift_df = pd.read_excel(employee_file, sheet_name="Shifts")
         store_df = pd.read_excel(store_file)
         event_df = pd.read_excel(event_file)
+        
+        staff_df.columns = staff_df.columns.str.strip()
+        shift_df.columns = shift_df.columns.str.strip()
+        store_df.columns = store_df.columns.str.strip()
+        event_df.columns = event_df.columns.str.strip()
+        
+        print("event columns:", event_df.columns.tolist())
+        print("Store columns:", store_df.columns.tolist())
+        print("staff_df columns:", staff_df.columns.tolist())
+        print("shift_df columns:", shift_df.columns.tolist())
+        
+        if "Day" not in event_df.columns and "day" in event_df.columns:
+            event_df = event_df.rename(columns={"day": "Day"})
+            
+            
+        employee_df = staff_df.merge(
+            shift_df,
+            left_on="Full Name",
+            right_on="Employee",
+            how="left"
+        )
 
+        print("employee columns:", employee_df.columns.tolist())
+        
         # Build transactions
         transactions = cls.build_transactions(
             employee_df,

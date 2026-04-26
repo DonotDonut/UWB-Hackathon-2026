@@ -30,6 +30,7 @@ import os
 import pandas as pd
 import random
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 # Script / Python File connection
 from backend.database_access.turbo_overpass import TurboOverpass
@@ -41,20 +42,29 @@ from backend.database_modificaiton.event_coordinates import EventCoordinateMappe
 from backend.machine_learning.eclat import EclatScheduleSuggestion
 from backend.machine_learning.test import EclatTest
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 # Global File Paths
-OUTPUT_DIR = "output data"
+DATA_DIR = PROJECT_DIR / "data"
+OUTPUT_DIR = PROJECT_DIR / "output data"
 
-STORE_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list.xlsx"
-STORE_KML_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list.kml"
-STORE_CAPACITY_FILE = f"{OUTPUT_DIR}/5mile_radius_store_list_with_capacity.xlsx"
+STORE_FILE = OUTPUT_DIR / "5mile_radius_store_list.xlsx"
+STORE_KML_FILE = OUTPUT_DIR / "5mile_radius_store_list.kml"
+STORE_CAPACITY_FILE = OUTPUT_DIR / "5mile_radius_store_list_with_capacity.xlsx"
 
-EMPLOYEE_FILE = f"{OUTPUT_DIR}/random_employee_staffing.xlsx"
+# for testing and debugging the back end 
+EMPLOYEE_FILE = OUTPUT_DIR / "random_employee_staffing.xlsx"
 
-TICKETMASTER_EVENT_FILE = f"{OUTPUT_DIR}/ticketmaster_seattle_filtered_events.xlsx"
-EVENT_COORDINATE_FILE = f"{OUTPUT_DIR}/events_with_coordinates.xlsx"
+TICKETMASTER_EVENT_FILE = OUTPUT_DIR / "ticketmaster_seattle_filtered_events.xlsx"
+EVENT_COORDINATE_FILE = OUTPUT_DIR / "events_with_coordinates.xlsx"
 
-ECLAT_OUTPUT_FILE = f"{OUTPUT_DIR}/schedule_suggestions_eclat.xlsx"
+ECLAT_OUTPUT_FILE = OUTPUT_DIR / "schedule_suggestions_eclat.xlsx"
+
+# data use for the front end 
+CURRENT_EMPLOYEE = DATA_DIR / "staff_data.xlsx"
+CURRENT_STORES_FILE = DATA_DIR / "current_store_location.xlsx"
+CURRENT_EVENTS_FILE = DATA_DIR / "current_events.xlsx"
+
 
 
 
@@ -270,9 +280,9 @@ def run_eclat_model():
     
     
     suggestions_df, frequent_df, rules_df = EclatScheduleSuggestion.process(
-        employee_file=EMPLOYEE_FILE,
-        store_file=STORE_CAPACITY_FILE,
-        event_file=EVENT_COORDINATE_FILE,
+        employee_file=CURRENT_EMPLOYEE,
+        store_file=CURRENT_STORES_FILE,
+        event_file=CURRENT_EVENTS_FILE,
         output_file=ECLAT_OUTPUT_FILE,
         radius_miles=1.0,
         min_support=75,
@@ -284,24 +294,26 @@ def run_eclat_model():
     )
 
 
-    employee_df = pd.read_excel(EMPLOYEE_FILE)
-    store_df = pd.read_excel(STORE_CAPACITY_FILE)
-    event_df = pd.read_excel(EVENT_COORDINATE_FILE)
+    staff_df = pd.read_excel(CURRENT_EMPLOYEE, sheet_name="Staff")
+    shift_df = pd.read_excel(CURRENT_EMPLOYEE, sheet_name="Shifts")
+
+    staff_df.columns = staff_df.columns.str.strip()
+    shift_df.columns = shift_df.columns.str.strip()
+
+    employee_df = staff_df.merge(
+        shift_df,
+        left_on="Full Name",
+        right_on="Employee",
+        how="left"
+    )
+    store_df = pd.read_excel(CURRENT_STORES_FILE)
+    event_df = pd.read_excel(CURRENT_EVENTS_FILE)
 
     transactions = EclatScheduleSuggestion.build_transactions(
         employee_df=employee_df,
         store_df=store_df,
         event_df=event_df,
         radius_miles=1.0 # assuming that people would walk 1 mile to resturant after event 
-    )
-
-    EclatTest.validate_eclat_results(
-        frequent_df=frequent_df,
-        suggestions_df=suggestions_df
-    )
-
-    EclatTest.validate_train_test_patterns(
-        transactions=transactions
     )
 
     ''' Metrics 
@@ -323,19 +335,27 @@ def run_eclat_model():
     '''
     
     print("Eclat: Completed modeling + validation")
+    
+    
+    return {
+        "suggestions": suggestions_df.to_dict(orient="records"),
+        "frequent_patterns": frequent_df.to_dict(orient="records"),
+        "rules": rules_df.to_dict(orient="records"),
+    }
+
 
 
 # main
-random.seed(42)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+if __name__ == "__main__":
+    random.seed(42)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    #extract_store_locations()
+    #extract_ticketmaster_events()
+    #create_employee_database()
+    #add_store_capacity()
+    #add_event_coordinates()
+    run_eclat_model()
 
-#extract_store_locations()
-#extract_ticketmaster_events()
-#create_employee_database()
-#add_store_capacity()
-#add_event_coordinates()
-run_eclat_model()
-
-print("Pipeline completed successfully.")
+    print("Pipeline completed successfully.")
 
 
