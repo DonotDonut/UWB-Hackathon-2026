@@ -9,13 +9,13 @@
         {% csrf_token %}
 
         <label>Full Name</label>
-        <input type="text" name="full_name" placeholder="Enter full name">
+        <input type="text" name="full_name" placeholder="Enter full name" required>
 
         <label>Email</label>
-        <input type="email" name="email" placeholder="Enter email address">
+        <input type="email" name="email" placeholder="Enter email address" required>
 
         <label>Role</label>
-        <input type="text" name="role" placeholder="Enter role (e.g., Employee, Manager)">
+        <input type="text" name="role" placeholder="Enter role (e.g., Employee, Manager)" required>
 
         <button type="submit">Add Person</button>
     </form>

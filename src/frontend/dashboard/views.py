@@ -1,15 +1,13 @@
-from django.shortcuts import render
-
-def dashboard(request):
-    return render(request, "dashboard.html")
-
 from django.shortcuts import render, redirect
 from openpyxl import Workbook, load_workbook
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-EXCEL_FILE = BASE_DIR / "staff_data.xlsx"
 
+BASE_DIR = Path(__file__).resolve().parents[3]
+EXCEL_FILE = BASE_DIR / "data" / "staff_data.xlsx"
+
+def dashboard(request):
+    return render(request, "dashboard.html")
 
 def add_person(request):
     if request.method == "POST":
