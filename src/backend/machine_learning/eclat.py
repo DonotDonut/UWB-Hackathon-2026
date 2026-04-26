@@ -167,6 +167,10 @@ class EclatScheduleSuggestion:
     def create_schedule_suggestions(employee_df, store_df, event_df, radius_miles=1.0):
         suggestions = []
 
+        # Clean values
+        employee_df["Day"] = employee_df["Day"].astype(str).str.strip()
+        event_df["Day"] = event_df["Day"].astype(str).str.strip()
+
         for _, event in event_df.iterrows():
             for _, store in store_df.iterrows():
 
@@ -178,8 +182,11 @@ class EclatScheduleSuggestion:
                 )
 
                 if distance <= radius_miles:
+                    event_day = str(event["Day"]).strip()
+
                     employees = employee_df[
-                        employee_df["osm_id"] == store["osm_id"]
+                        (employee_df["osm_id"] == store["osm_id"]) &
+                        (employee_df["Day"].str.lower() == event_day.lower())
                     ]
 
                     capacity = store["estimated_store_capacity"]
@@ -196,7 +203,7 @@ class EclatScheduleSuggestion:
                     for _, employee in selected.iterrows():
                         suggestions.append({
                             "Employee": employee["Full Name"],
-                            "Day": event["Day"],
+                            "Day": event_day,
                             "Start Time": event["time"],
                             "End Time": event["time"],
                             "event_name": event["event_name"],

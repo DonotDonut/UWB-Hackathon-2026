@@ -55,9 +55,9 @@ function drop(event) {
 }
 
 async function createSuggestedSchedule() {
-    console.log("createSuggestedSchedule started");
-
     try {
+        console.log("createSuggestedSchedule started");
+
         const response = await fetch("/create-suggested-schedule/", {
             method: "POST",
             headers: {
@@ -66,10 +66,15 @@ async function createSuggestedSchedule() {
             },
         });
 
-        console.log("fetch sent");
+        const text = await response.text();
+        console.log("RAW RESPONSE:", text);
 
-        const data = await response.json();
-        console.log(data);
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            throw new Error("Backend returned HTML error page. Check Django terminal.");
+        }
 
         if (!response.ok || data.status !== "success") {
             throw new Error(data.message || "Backend failed");

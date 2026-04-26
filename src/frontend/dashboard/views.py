@@ -39,6 +39,79 @@ def add_person(request):
     return render(request, "add_person.html")
 
 
+BASE_DIR = Path(__file__).resolve().parents[3]
+
+EXCEL_FILE = BASE_DIR / "data" / "staff_data.xlsx"
+RECOMMENDED_SCHEDULE_FILE = BASE_DIR / "data" / "recommended_staff_schedule.xlsx"
+def schedules(request):
+    # LEFT: original staff schedule
+    staff_df = pd.read_excel(EXCEL_FILE, sheet_name="Shifts")
+    staff_df.columns = staff_df.columns.str.strip()
+
+    staff_schedule = []
+
+    for employee, group in staff_df.groupby("Employee"):
+        days = ", ".join(group["Day"].astype(str).tolist())
+
+        times = group.apply(
+            lambda row: f"{row['Start Time']} - {row['End Time']}",
+            axis=1
+        ).unique()
+
+        staff_schedule.append({
+            "employee": employee,
+            "days": days,
+            "time": ", ".join(times),
+        })
+
+    # RIGHT: recommended schedule if exists
+    if RECOMMENDED_SCHEDULE_FILE.exists():
+        week_df = pd.read_excel(
+            RECOMMENDED_SCHEDULE_FILE,
+            sheet_name="Recommended Schedule"
+        )
+    else:
+        week_df = staff_df
+
+    week_df.columns = week_df.columns.str.strip()
+
+    week_schedule = []
+
+    days_order = [
+        "Monday", "Tuesday", "Wednesday", "Thursday",
+        "Friday", "Saturday", "Sunday"
+    ]
+
+    for day in days_order:
+        day_rows = week_df[
+            week_df["Day"].astype(str).str.lower() == day.lower()
+        ]
+
+        shifts = []
+
+        for _, row in day_rows.iterrows():
+            employee = str(row["Employee"])
+
+            shifts.append({
+                "employee": employee,
+                "time": f"{row['Start Time']} - {row['End Time']}",
+                "color": employee.split()[0].lower(),
+            })
+
+        week_schedule.append({
+            "day": day,
+            "shifts": shifts,
+        })
+
+    return render(
+        request,
+        "schedules.html",
+        {
+            "staff_schedule": staff_schedule,   # LEFT SIDE
+            "week_schedule": week_schedule,     # RIGHT SIDE
+        },
+    )
+
 def edit_shift(request):
     employees = []
     shifts = []
@@ -99,7 +172,7 @@ def edit_shift(request):
         }
     )
     
-    
+
     
 
 
@@ -113,76 +186,8 @@ print("SRC_DIR:", SRC_DIR)
 
 from backend.main import run_eclat_model
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import ensure_csrf_cookie
-import traceback
-
-@ensure_csrf_cookie
-def schedules(request):
-    df = pd.read_excel(EXCEL_FILE, sheet_name="Shifts")
-
-    df.columns = df.columns.str.strip()
-
-    staff_schedule = []
-    week_schedule = []
-
-    for employee, group in df.groupby("Employee"):
-        days = ", ".join(group["Day"].astype(str).tolist())
-
-        times = group.apply(
-            lambda row: f"{row['Start Time']} - {row['End Time']}",
-            axis=1
-        ).unique()
-
-        staff_schedule.append({
-            "employee": employee,
-            "days": days,
-            "time": ", ".join(times),
-        })
-
-    days_order = [
-        "Monday", "Tuesday", "Wednesday", "Thursday",
-        "Friday", "Saturday", "Sunday"
-    ]
-
-    for day in days_order:
-        day_rows = df[df["Day"].astype(str).str.lower() == day.lower()]
-
-        shifts = []
-
-        for _, row in day_rows.iterrows():
-            employee = str(row["Employee"])
-
-            shifts.append({
-                "employee": employee,
-                "time": f"{row['Start Time']} - {row['End Time']}",
-                "color": employee.split()[0].lower(),
-            })
-
-        week_schedule.append({
-            "day": day,
-            "shifts": shifts,
-        })
-
-    return render(
-        request,
-        "schedules.html",
-        {
-            "staff_schedule": staff_schedule,
-            "week_schedule": week_schedule,
-        },
-    )
-
-
 def create_suggested_schedule(request):
-    if request.method != "POST":
-        return JsonResponse({
-            "status": "error",
-            "message": "POST required"
-        }, status=405)
-
-    try:
-        print("ECLAT TRIGGERED")
+    if request.method == "POST":
         result = run_eclat_model()
 
         return JsonResponse({
@@ -190,11 +195,4 @@ def create_suggested_schedule(request):
             "data": result,
         })
 
-    except Exception as e:
-        print("ECLAT ERROR:")
-        traceback.print_exc()
-
-        return JsonResponse({
-            "status": "error",
-            "message": str(e),
-        }, status=500)
+    return JsonResponse({"status": "error", "message": "POST required"}, status=405)
