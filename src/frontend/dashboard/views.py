@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect
 from openpyxl import Workbook, load_workbook
 from pathlib import Path
 import pandas as pd
+from django.http import JsonResponse
+import sys
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]
@@ -23,7 +25,7 @@ def add_person(request):
             workbook = Workbook()
             sheet = workbook.active
             sheet.title = "Staff"
-            sheet.append(["Full Name", "Email", "Role", "", "", ""])
+            sheet.append(["Full Name", "Email", "Role"])
 
         sheet.append([full_name, email, role])
         workbook.save(EXCEL_FILE)
@@ -154,3 +156,28 @@ def edit_shift(request):
             "shifts": shifts,
         }
     )
+    
+    
+    
+
+
+
+SRC_DIR = Path(__file__).resolve().parents[2]
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+print("SRC_DIR:", SRC_DIR)
+
+from backend.main import run_eclat_model
+
+def create_suggested_schedule(request):
+    if request.method == "POST":
+        result = run_eclat_model()
+
+        return JsonResponse({
+            "status": "success",
+            "data": result,
+        })
+
+    return JsonResponse({"status": "error", "message": "POST required"}, status=405)
