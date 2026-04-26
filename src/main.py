@@ -28,6 +28,8 @@ for structuring, debugging, and optimization.
 # Importing Python Libraries
 import os
 import pandas as pd
+import random
+import matplotlib.pyplot as plt
 
 # Script / Python File connection
 from database_access.turbo_overpass import TurboOverpass
@@ -252,20 +254,35 @@ def add_event_coordinates():
 
 
 
-# Step 6: Run Eclat + Validation
+# Run Eclat + Validation
 def run_eclat_model():
     """
     Run Eclat algorithm and validate results.
     """
-
-    suggestions_df, frequent_df = EclatScheduleSuggestion.process(
+    
+    MIN_CONFIDENCE = 0.75  # good range: 0.6–0.8
+    MIN_LIFT = 1.5
+    MAX_PATTERN_LENGTH = 2
+    REMOVE_COMMON_ITEM_LIMIT = 3
+    FOCUS_MAXIMAL_PATTERNS = False
+    
+    # higher the min_support it filters the noise keeping the patterns more real, if low then it it memorizing coincidences making it look stable 
+    
+    
+    suggestions_df, frequent_df, rules_df = EclatScheduleSuggestion.process(
         employee_file=EMPLOYEE_FILE,
         store_file=STORE_CAPACITY_FILE,
         event_file=EVENT_COORDINATE_FILE,
         output_file=ECLAT_OUTPUT_FILE,
         radius_miles=1.0,
-        min_support=3
+        min_support=75,
+        min_confidence=MIN_CONFIDENCE,
+        min_lift=MIN_LIFT,
+        max_pattern_length=MAX_PATTERN_LENGTH,
+        focus_maximal_patterns=FOCUS_MAXIMAL_PATTERNS#,
+        #frequent_itemsets=REMOVE_COMMON_ITEM_LIMIT
     )
+
 
     employee_df = pd.read_excel(EMPLOYEE_FILE)
     store_df = pd.read_excel(STORE_CAPACITY_FILE)
@@ -287,18 +304,36 @@ def run_eclat_model():
         transactions=transactions
     )
 
+    ''' Metrics 
+    Train Transactions, size of training data large data is great, e.g 10k+ 
+    Test Transactions, patterns generalize to new data 
+        - amoubt of data split to traing, ~20 - 40% 
+        - we split the data by 30% 
+    Train Frequent Patterns
+        How many relationships your model found
+        1k - 20k is good 
+    Frequent Patterns
+        - want value close to training Frequent Patterns close to the test Frequent Patterns 
+        - if train count < Test Frequent Patterns then over fiiting 
+        - if train count > Test Frequent Patterns then under fiiting 
+    Overlapping Patterns (%) = overlap / train_patters 
+        - 0.75 is good, 0.75 - 0.6 is good 
+        0.5 is bad 
+    Pattern Overlap Rate
+    '''
+    
     print("Eclat: Completed modeling + validation")
 
 
 # main
-
+random.seed(42)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-extract_store_locations()
-extract_ticketmaster_events()
-create_employee_database()
-add_store_capacity()
-add_event_coordinates()
+#extract_store_locations()
+#extract_ticketmaster_events()
+#create_employee_database()
+#add_store_capacity()
+#add_event_coordinates()
 run_eclat_model()
 
 print("Pipeline completed successfully.")

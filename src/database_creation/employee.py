@@ -30,7 +30,7 @@ class EmployeeGenerator:
         positions,
         availability,
         schedules,
-        people_per_store=7
+        people_per_store
     ):
         """
         Generate employee dataset and save to Excel.
@@ -61,7 +61,6 @@ class EmployeeGenerator:
 
         # Iterate through each store/location
         for _, store in stores_df.iterrows():
-
 
             # Assign exactly ONE Store Manager per store
             rows.append({

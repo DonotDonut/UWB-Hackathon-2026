@@ -239,27 +239,19 @@ class EclatScheduleSuggestion:
         store_file,
         event_file,
         output_file,
-        radius_miles=1.0,
-        min_support=3
+        radius_miles,
+        min_support,
+        min_confidence,
+        min_lift,
+        max_pattern_length,
+        focus_maximal_patterns
     ):
-        """
-        End-to-end pipeline:
-        1. Load datasets
-        2. Build transactions
-        3. Run Eclat
-        4. Generate schedule suggestions
-        5. Save results to Excel
-
-        Returns:
-            tuple: (suggestions_df, frequent_df)
-        """
-
         # Load datasets
         employee_df = pd.read_excel(employee_file)
         store_df = pd.read_excel(store_file)
         event_df = pd.read_excel(event_file)
 
-        # Build transactions for Eclat
+        # Build transactions
         transactions = cls.build_transactions(
             employee_df,
             store_df,
@@ -267,10 +259,29 @@ class EclatScheduleSuggestion:
             radius_miles=radius_miles
         )
 
-        # Run Eclat algorithm
+        # Run Eclat
         frequent_itemsets = cls.run_eclat(
             transactions,
             min_support=min_support
+        )
+
+        # Limit pattern length before optional maximal filtering
+        frequent_itemsets = {
+            itemset: support
+            for itemset, support in frequent_itemsets.items()
+            if len(itemset) <= max_pattern_length
+        }
+
+        # Keep only maximal patterns if enabled
+        if focus_maximal_patterns:
+            frequent_itemsets = cls.filter_maximal_patterns(frequent_itemsets)
+
+        # Generate association rules after frequent itemsets exist
+        rules_df = cls.generate_association_rules(
+            frequent_itemsets=frequent_itemsets,
+            transaction_count=len(transactions),
+            min_confidence=min_confidence,
+            min_lift=min_lift
         )
 
         # Generate schedule suggestions
@@ -285,18 +296,85 @@ class EclatScheduleSuggestion:
         frequent_df = pd.DataFrame([
             {
                 "itemset": ", ".join(itemset),
-                "support": support
+                "support": support,
+                "pattern_length": len(itemset)
             }
             for itemset, support in frequent_itemsets.items()
         ])
 
-        # Save results to Excel (multiple sheets)
+        # Save results
         with pd.ExcelWriter(output_file) as writer:
             suggestions_df.to_excel(writer, sheet_name="Schedule Suggestions", index=False)
             frequent_df.to_excel(writer, sheet_name="Eclat Frequent Patterns", index=False)
+            rules_df.to_excel(writer, sheet_name="Association Rules", index=False)
 
         print(f"Saved: {output_file}")
         print(f"Suggestions Created: {len(suggestions_df)}")
         print(f"Frequent Patterns Found: {len(frequent_df)}")
+        print(f"Association Rules Found: {len(rules_df)}")
 
-        return suggestions_df, frequent_df
+        return suggestions_df, frequent_df, rules_df
+    
+    @staticmethod
+    def generate_association_rules(frequent_itemsets, transaction_count, min_confidence=0.7, min_lift=1.2):
+        rules = []
+
+        support_lookup = {
+            itemset: support for itemset, support in frequent_itemsets.items()
+        }
+
+        for itemset, itemset_support in frequent_itemsets.items():
+            itemset = tuple(itemset)
+
+            if len(itemset) < 2:
+                continue
+
+            items = list(itemset)
+
+            for i in range(1, len(items)):
+                from itertools import combinations
+
+                for antecedent in combinations(items, i):
+                    antecedent = tuple(antecedent)
+                    consequent = tuple(item for item in items if item not in antecedent)
+
+                    antecedent_support = support_lookup.get(antecedent)
+                    consequent_support = support_lookup.get(consequent)
+
+                    if not antecedent_support or not consequent_support:
+                        continue
+
+                    confidence = itemset_support / antecedent_support
+                    lift = confidence / (consequent_support / transaction_count)
+
+                    if confidence >= min_confidence and lift >= min_lift:
+                        rules.append({
+                            "antecedent": ", ".join(antecedent),
+                            "consequent": ", ".join(consequent),
+                            "support": itemset_support,
+                            "confidence": round(confidence, 4),
+                            "lift": round(lift, 4),
+                        })
+
+        return pd.DataFrame(rules)
+    
+    @staticmethod
+    def filter_maximal_patterns(frequent_itemsets):
+        itemsets = list(frequent_itemsets.keys())
+        maximal_itemsets = {}
+
+        for itemset in itemsets:
+            itemset_set = set(itemset)
+
+            is_subset = False
+            for other_itemset in itemsets:
+                other_set = set(other_itemset)
+
+                if itemset_set < other_set:
+                    is_subset = True
+                    break
+
+            if not is_subset:
+                maximal_itemsets[itemset] = frequent_itemsets[itemset]
+
+        return maximal_itemsets
